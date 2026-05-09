@@ -129,6 +129,8 @@ AREA_SEED = [
     ("area_trybe_report", "system_trybe", "Trybe", "Report", "REPORT", "team_trybe"),
     ("area_trybe_monthly_process", "system_trybe", "Trybe", "Monthly Process", "MONTHLY_PROCESS", "team_trybe"),
     ("area_trybe_data_import", "system_trybe", "Trybe", "Data Import", "DATA_IMPORT", "team_trybe"),
+    ("area_lattice_other", "system_lattice", "Lattice", "Other", "OTHER", "team_lattice"),
+    ("area_trybe_other", "system_trybe", "Trybe", "Other", "OTHER", "team_trybe"),
 ]
 
 TEAM_SEED = [

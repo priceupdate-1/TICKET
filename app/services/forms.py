@@ -59,6 +59,7 @@ def ticket_payload_from_form(form):
         "systemId": form.get("systemId", ""),
         "categoryId": form.get("categoryId", ""),
         "areaId": form.get("areaId", ""),
+        "customAreaName": form.get("customAreaName", "").strip(),
         "priority": form.get("priority", ""),
         "title": form.get("title", "").strip(),
         "description": form.get("description", "").strip(),
@@ -75,6 +76,10 @@ def validate_ticket_payload(payload):
         errors.append("Category is required.")
     if not payload.get("areaId"):
         errors.append("Area is required.")
+    # If user picked "Other", they must describe the custom area.
+    area_id = payload.get("areaId", "")
+    if area_id.startswith("area_") and area_id.endswith("_other") and not payload.get("customAreaName"):
+        errors.append("Please describe the custom area when choosing 'Other'.")
     if not payload.get("priority"):
         errors.append("Priority is required.")
     if len(payload.get("title", "")) < 5:

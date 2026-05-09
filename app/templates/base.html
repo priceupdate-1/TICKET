@@ -47,10 +47,21 @@
             </a>
           {% endif %}
 
-          <a class="nav-link {% if req_path == '/tickets/' or req_path == '/tickets' %}is-active{% endif %}" href="{{ url_for('tickets.all_tickets') }}">
+          <a class="nav-link {% if (req_path == '/tickets/' or req_path == '/tickets') and not request.args.get('system') %}is-active{% endif %}" href="{{ url_for('tickets.all_tickets') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             All Tickets
           </a>
+
+          {% if nav_systems %}
+            <div class="nav-section-label">Systems</div>
+            {% for sys in nav_systems %}
+              <a class="nav-link nav-system {% if request.args.get('system') == sys.id %}is-active{% endif %}" href="{{ url_for('tickets.all_tickets', system=sys.id) }}">
+                <span class="nav-sys-dot {% if sys.id == 'system_lattice' %}is-lattice{% else %}is-trybe{% endif %}"></span>
+                {{ sys.name }}
+                {% if sys.open_count %}<span class="nav-count">{{ sys.open_count }}</span>{% endif %}
+              </a>
+            {% endfor %}
+          {% endif %}
 
           {% if current_permissions.canApproveTicket %}
             <a class="nav-link {% if 'pending' in req_path %}is-active{% endif %}" href="{{ url_for('tickets.pending_authorization') }}">

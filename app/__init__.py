@@ -109,10 +109,36 @@ def create_app(config_class=Config):
 
     @app.context_processor
     def inject_user_context():
+        user = current_user()
+        permissions = current_permissions()
+        systems = []
+        if user:
+            try:
+                visible = app.repo.visible_tickets(user, permissions)
+                open_statuses = {
+                    "Pending Authorization", "Approved", "Assigned to Team",
+                    "Assigned To Team", "In Progress", "Work Updated",
+                    "On Hold", "Reopened", "Need More Information",
+                }
+                for system in app.repo.systems():
+                    open_count = sum(
+                        1 for t in visible
+                        if t.get("systemId") == system["id"] and t.get("status") in open_statuses
+                    )
+                    total_count = sum(1 for t in visible if t.get("systemId") == system["id"])
+                    systems.append({
+                        "id": system["id"],
+                        "name": system["name"],
+                        "open_count": open_count,
+                        "total_count": total_count,
+                    })
+            except Exception:
+                systems = []
         return {
-            "current_user": current_user(),
-            "current_permissions": current_permissions(),
+            "current_user": user,
+            "current_permissions": permissions,
             "app_name": app.config["APP_NAME"],
+            "nav_systems": systems,
         }
 
     return app

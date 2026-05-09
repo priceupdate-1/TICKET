@@ -8,7 +8,7 @@
     <div class="section-header">
       <div>
         <h2>{{ ticket.title }}</h2>
-        <p>{{ ticket.systemName }} · {{ ticket.areaName }} · {{ ticket.categoryName }}</p>
+        <p>{{ ticket.systemName }} · {{ ticket.areaName }}{% if ticket.customAreaName %} <span class="text-muted">(custom)</span>{% endif %} · {{ ticket.categoryName }}</p>
       </div>
       <div class="inline-controls">
         <span class="ticket-status {{ ticket.status|status_css }}">{{ ticket.status|friendly_status }}</span>

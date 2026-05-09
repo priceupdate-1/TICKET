@@ -4,7 +4,7 @@
 {% block page_subtitle %}Tell us what's wrong — we'll route it to the right person.{% endblock %}
 
 {% block content %}
-  <form class="form-layout" method="post">
+  <form class="form-layout" method="post" id="ticket-form">
     <section class="section-band">
       <div class="section-header">
         <div>
@@ -15,7 +15,7 @@
       <div class="form-grid">
         <label>
           <span>System</span>
-          <select name="systemId" required>
+          <select name="systemId" id="ticket-system" required>
             <option value="">Select system</option>
             {% for system in systems %}
               <option value="{{ system.id }}" {% if ticket and ticket.systemId == system.id %}selected{% endif %}>{{ system.name }}</option>
@@ -33,10 +33,10 @@
         </label>
         <label>
           <span>Area</span>
-          <select name="areaId" required>
+          <select name="areaId" id="ticket-area" required>
             <option value="">Select area</option>
             {% for area in areas %}
-              <option value="{{ area.id }}" {% if ticket and ticket.areaId == area.id %}selected{% endif %}>{{ area.systemName }} — {{ area.name }}</option>
+              <option value="{{ area.id }}" data-system-id="{{ area.systemId }}" {% if ticket and ticket.areaId == area.id %}selected{% endif %}>{{ area.name }}</option>
             {% endfor %}
           </select>
         </label>
@@ -48,6 +48,10 @@
               <option value="{{ priority }}" {% if ticket and ticket.priority == priority %}selected{% endif %}>{{ priority }}</option>
             {% endfor %}
           </select>
+        </label>
+        <label class="span-2" id="custom-area-wrap" style="display:none">
+          <span>Describe the area (since you chose 'Other')</span>
+          <input name="customAreaName" id="custom-area-input" placeholder="e.g. Custom report mismatch, License issue…" value="{{ ticket.customAreaName if ticket and ticket.customAreaName else '' }}" />
         </label>
         <label class="span-2">
           <span>Title</span>
@@ -73,4 +77,45 @@
       <button class="button button-primary" type="submit" name="intent" value="submit">Submit Ticket</button>
     </div>
   </form>
+
+  <script>
+    (function () {
+      var systemSelect = document.getElementById('ticket-system');
+      var areaSelect   = document.getElementById('ticket-area');
+      var customWrap   = document.getElementById('custom-area-wrap');
+      var customInput  = document.getElementById('custom-area-input');
+      if (!systemSelect || !areaSelect) return;
+
+      function refreshAreas() {
+        var systemId = systemSelect.value;
+        var firstVisible = null;
+        Array.prototype.forEach.call(areaSelect.options, function (opt) {
+          if (!opt.value) { opt.hidden = false; return; }   // keep "Select area"
+          var match = !systemId || opt.dataset.systemId === systemId;
+          opt.hidden = !match;
+          opt.disabled = !match;
+          if (match && firstVisible === null) firstVisible = opt.value;
+        });
+        // If current area belongs to a different system, reset selection.
+        var current = areaSelect.options[areaSelect.selectedIndex];
+        if (current && current.value && current.dataset.systemId && current.dataset.systemId !== systemId) {
+          areaSelect.value = '';
+        }
+        toggleCustomArea();
+      }
+
+      function toggleCustomArea() {
+        var current = areaSelect.options[areaSelect.selectedIndex];
+        var isOther = current && current.value && (current.value.indexOf('_other') !== -1);
+        if (customWrap) customWrap.style.display = isOther ? '' : 'none';
+        if (!isOther && customInput) customInput.value = '';
+        if (customInput) customInput.required = !!isOther;
+      }
+
+      systemSelect.addEventListener('change', refreshAreas);
+      areaSelect.addEventListener('change', toggleCustomArea);
+      // initial state
+      refreshAreas();
+    })();
+  </script>
 {% endblock %}

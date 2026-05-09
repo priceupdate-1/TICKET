@@ -405,6 +405,8 @@ class JsonRepository:
         authorized_person = self._find_authorized_person(data, system, area)
         status = "Pending Authorization" if submit else "Draft"
 
+        custom_area = (payload.get("customAreaName") or "").strip()
+        effective_area_name = custom_area if custom_area else area["name"]
         ticket = {
             "id": ticket_id,
             "ticketNo": ticket_no,
@@ -413,7 +415,8 @@ class JsonRepository:
             "categoryId": category["id"],
             "categoryName": category["name"],
             "areaId": area["id"],
-            "areaName": area["name"],
+            "areaName": effective_area_name,
+            "customAreaName": custom_area or None,
             "priority": payload["priority"],
             "title": payload["title"],
             "description": payload["description"],
@@ -486,6 +489,8 @@ class JsonRepository:
         authorized_person = self._find_authorized_person(data, system, area)
         old_status = ticket["status"]
 
+        custom_area = (payload.get("customAreaName") or "").strip()
+        effective_area_name = custom_area if custom_area else area["name"]
         ticket.update(
             {
                 "systemId": system["id"],
@@ -493,7 +498,8 @@ class JsonRepository:
                 "categoryId": category["id"],
                 "categoryName": category["name"],
                 "areaId": area["id"],
-                "areaName": area["name"],
+                "areaName": effective_area_name,
+                "customAreaName": custom_area or None,
                 "priority": payload["priority"],
                 "title": payload["title"],
                 "description": payload["description"],

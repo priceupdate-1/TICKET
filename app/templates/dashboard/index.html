@@ -14,6 +14,34 @@
     {% endfor %}
   </section>
 
+  {% if is_admin_view and system_breakdown %}
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>System Breakdown</h2>
+          <p>Ticket load across each system.</p>
+        </div>
+      </div>
+      <div class="system-grid">
+        {% for s in system_breakdown %}
+          <a class="system-card" href="{{ url_for('tickets.all_tickets', system=s.id) }}">
+            <div class="system-card-head">
+              <span class="nav-sys-dot {% if s.id == 'system_lattice' %}is-lattice{% else %}is-trybe{% endif %}"></span>
+              <strong>{{ s.name }}</strong>
+              <span class="system-card-total">{{ s.total }}</span>
+            </div>
+            <div class="system-card-stats">
+              <div><span>Open</span><b>{{ s.open }}</b></div>
+              <div><span>Waiting</span><b>{{ s.pending }}</b></div>
+              <div><span>In Progress</span><b>{{ s.in_progress }}</b></div>
+              <div><span>Closed</span><b>{{ s.closed }}</b></div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   {% if pending_for_me %}
     <section class="section-band">
       <div class="section-header">

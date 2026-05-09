@@ -210,12 +210,30 @@ def dashboard():
 
     recent_tickets = sorted(visible, key=lambda t: t.get("updatedAt", ""), reverse=True)[:8]
 
+    # Admin-only: per-system breakdown so admin can see Lattice vs Trybe load
+    system_breakdown = []
+    if is_admin:
+        open_set = {"Pending Authorization", "Approved", "Assigned to Team", "Assigned To Team", "In Progress", "Work Updated", "On Hold", "Reopened", "Need More Information"}
+        for system in current_app.repo.systems():
+            sys_tickets = [t for t in visible if t.get("systemId") == system["id"]]
+            system_breakdown.append({
+                "id": system["id"],
+                "name": system["name"],
+                "total": len(sys_tickets),
+                "open": sum(1 for t in sys_tickets if t.get("status") in open_set),
+                "pending": sum(1 for t in sys_tickets if t.get("status") == "Pending Authorization"),
+                "in_progress": sum(1 for t in sys_tickets if t.get("status") in {"In Progress", "Work Updated"}),
+                "closed": sum(1 for t in sys_tickets if t.get("status") in {"Closed", "Verified"}),
+            })
+
     return render_template(
         "dashboard/index.html",
         cards=cards,
         greeting_subtitle=subtitle,
         pending_for_me=pending_for_me,
         recent_tickets=recent_tickets,
+        system_breakdown=system_breakdown,
+        is_admin_view=is_admin,
     )
 
 
@@ -375,13 +393,23 @@ def reset_password(uid):
 @tickets_bp.route("/")
 @login_required
 def all_tickets():
+    system_id = request.args.get("system", "").strip()
     tickets = current_app.repo.visible_tickets(current_user(), current_permissions())
+    heading = "All Tickets"
+    description = "Tickets visible to your current role and permissions."
+    if system_id:
+        tickets = [t for t in tickets if t.get("systemId") == system_id]
+        system_name = next((s["name"] for s in current_app.repo.systems() if s["id"] == system_id), "")
+        if system_name:
+            heading = f"{system_name} Tickets"
+            description = f"All {system_name} tickets you can access."
     return render_template(
         "tickets/list.html",
         tickets=tickets,
-        page_heading="All Tickets",
-        page_description="Tickets visible to your current role and permissions.",
+        page_heading=heading,
+        page_description=description,
         statuses=TICKET_STATUSES,
+        active_system=system_id,
     )
 
 
