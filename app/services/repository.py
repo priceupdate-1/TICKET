@@ -26,8 +26,17 @@ def new_id(prefix):
 
 class JsonRepository:
     def __init__(self, path):
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        candidate = Path(path)
+        try:
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            self.path = candidate
+        except OSError:
+            # Read-only filesystem (e.g. Vercel /var/task). Use /tmp instead so
+            # the app at least boots. Note: data here is ephemeral per invocation.
+            import os
+            tmp = Path(os.environ.get("TMPDIR", "/tmp")) / "kg_ticket_store.json"
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            self.path = tmp
         if not self.path.exists():
             self._write(build_seed_data())
         else:

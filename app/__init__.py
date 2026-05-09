@@ -1,9 +1,58 @@
-from flask import Flask
+from flask import Flask, render_template_string
 
 from app.config import Config
 from app.services.auth import current_permissions, current_user
 from app.services.firebase_repository import FirestoreRepository
 from app.services.repository import JsonRepository
+
+
+_SETUP_HELP_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Setup needed · KG Ticket Control</title>
+    <style>
+      body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #f6f7f9; color: #0f172a; margin: 0; padding: 40px 20px; line-height: 1.55; }
+      .card { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 32px 36px; box-shadow: 0 12px 28px rgba(15,23,42,0.08); }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      p.sub { color: #64748b; margin: 0 0 20px; font-size: 14px; }
+      h2 { font-size: 14px; margin: 20px 0 8px; color: #2563eb; text-transform: uppercase; letter-spacing: 0.05em; }
+      ol { padding-left: 22px; }
+      li { margin-bottom: 8px; font-size: 14px; }
+      code, pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+      pre { padding: 12px 14px; overflow-x: auto; white-space: pre-wrap; }
+      .err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin: 0 0 18px; }
+      a { color: #2563eb; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>One step left to finish setup</h1>
+      <p class="sub">The app is running but it can't reach a database yet.</p>
+      <div class="err">Reason: {{ error }}</div>
+
+      <h2>Set these env vars on Vercel</h2>
+      <p>Project Settings &rarr; Environment Variables (Production), then redeploy:</p>
+      <pre>APP_STORAGE_MODE        = firebase
+FIREBASE_PROJECT_ID     = {{ project }}
+FIREBASE_CREDENTIALS_JSON = (paste the entire serviceAccount.json content as ONE line)
+SECRET_KEY              = (any long random string)</pre>
+
+      <h2>Where to get FIREBASE_CREDENTIALS_JSON</h2>
+      <ol>
+        <li>Open <a href="https://console.firebase.google.com/project/{{ project }}/settings/serviceaccounts/adminsdk" target="_blank" rel="noopener">Firebase Console &rarr; Service Accounts</a></li>
+        <li>Click <strong>Generate new private key</strong> &rarr; downloads a JSON file</li>
+        <li>Open it in a text editor, copy the entire contents</li>
+        <li>In Vercel, paste it as the value of <code>FIREBASE_CREDENTIALS_JSON</code> (Vercel preserves newlines in env vars, so multi-line JSON is fine)</li>
+        <li>Click <strong>Redeploy</strong> on the latest deployment</li>
+      </ol>
+
+      <h2>Tip</h2>
+      <p>Run <code>python scripts/prepare_vercel_env.py</code> locally to print the JSON pre-formatted for paste-into-Vercel.</p>
+    </div>
+  </body>
+</html>"""
 
 
 # Backend status -> user-friendly label (Phase 3 simplification)
@@ -47,8 +96,13 @@ STATUS_CSS = {
 
 
 def create_app(config_class=Config):
+    import os
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    on_vercel = bool(os.environ.get("VERCEL"))
+    storage_error = None
+
     if app.config["STORAGE_MODE"] == "firebase":
         try:
             app.repo = FirestoreRepository(
@@ -57,10 +111,41 @@ def create_app(config_class=Config):
                 credentials_json=app.config.get("FIREBASE_CREDENTIALS_JSON"),
             )
         except RuntimeError as error:
-            app.logger.warning("Falling back to local JSON storage: %s", error)
-            app.repo = JsonRepository(app.config["LOCAL_STORE_PATH"])
+            app.logger.warning("Firestore init failed: %s", error)
+            storage_error = str(error)
+            app.repo = None
+            if not on_vercel:
+                # Local dev: fall back to JSON file so user can keep working.
+                try:
+                    app.repo = JsonRepository(app.config["LOCAL_STORE_PATH"])
+                    app.logger.warning("Falling back to local JSON storage.")
+                except OSError as fs_error:
+                    app.logger.error("Could not initialise local storage: %s", fs_error)
     else:
-        app.repo = JsonRepository(app.config["LOCAL_STORE_PATH"])
+        try:
+            app.repo = JsonRepository(app.config["LOCAL_STORE_PATH"])
+        except OSError as fs_error:
+            app.logger.error("Could not initialise local storage: %s", fs_error)
+            app.repo = None
+            storage_error = str(fs_error)
+
+    app.config["STORAGE_ERROR"] = storage_error
+    app.config["ON_VERCEL"] = on_vercel
+
+    # If storage failed on production, every request shows a clear setup page
+    # rather than a 500 stack trace.
+    @app.before_request
+    def _check_storage():
+        from flask import request as flask_request, render_template_string
+        if app.repo is None:
+            if flask_request.path.startswith("/static/"):
+                return None
+            return render_template_string(
+                _SETUP_HELP_TEMPLATE,
+                error=storage_error or "Storage backend not configured.",
+                project=app.config.get("FIREBASE_PROJECT_ID") or "<your-project-id>",
+            ), 500
+        return None
 
     from app.routes import auth_bp, dashboard_bp, errors_bp, notifications_bp, profile_bp, settings_bp, tickets_bp, users_bp
 
@@ -110,10 +195,10 @@ def create_app(config_class=Config):
 
     @app.context_processor
     def inject_user_context():
-        user = current_user()
-        permissions = current_permissions()
+        user = current_user() if app.repo else None
+        permissions = current_permissions() if app.repo else {}
         systems = []
-        if user:
+        if user and app.repo:
             try:
                 visible = app.repo.visible_tickets(user, permissions)
                 open_statuses = {
