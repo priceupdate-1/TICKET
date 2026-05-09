@@ -3,25 +3,35 @@ from functools import wraps
 from flask import current_app, flash, redirect, request, session, url_for
 from werkzeug.security import check_password_hash
 
-from app.services.firebase_auth import firebase_enabled, firebase_sign_in
+from app.services.firebase_auth import RECOVERABLE_FIREBASE_ERRORS, firebase_enabled, firebase_sign_in
 
 
 def login_user(repo, email, password):
-    firebase_session = None
-    if firebase_enabled():
-        firebase_session, error = firebase_sign_in(email, password)
-        if error:
-            return None, error
-        user = repo.get_user(firebase_session.get("localId")) or repo.get_user_by_email(email)
-    else:
-        user = repo.get_user_by_email(email)
-
+    """Attempt Firebase Auth first if enabled, then fall back to local password
+    check. This keeps the system usable while Firebase Auth users are being
+    provisioned, and survives transient network failures to Firebase."""
+    user = repo.get_user_by_email(email)
     if not user:
-        return None, "User is authenticated but not registered in the application."
+        return None, "Invalid email or password."
     if user.get("isDeleted"):
         return None, "This user has been deleted."
     if not user.get("isActive"):
         return None, "This user is inactive."
+
+    firebase_session = None
+    firebase_err = None
+    if firebase_enabled():
+        firebase_session, firebase_err = firebase_sign_in(email, password)
+
+    # If Firebase rejected the login with a non-recoverable error
+    # (e.g. INVALID_PASSWORD, USER_DISABLED), block immediately — that's a real
+    # security signal we should not override with a local check.
+    if firebase_enabled() and firebase_err and firebase_err.get("code") not in RECOVERABLE_FIREBASE_ERRORS:
+        return None, firebase_err.get("message", "Login failed.")
+
+    # Otherwise (Firebase succeeded, OR Firebase had a recoverable error like
+    # the user not yet existing in Auth, OR Firebase wasn't enabled) verify
+    # against the local password hash.
     if not firebase_session and not check_password_hash(user.get("passwordHash", ""), password):
         return None, "Invalid email or password."
 

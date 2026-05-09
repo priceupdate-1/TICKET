@@ -9,10 +9,26 @@ def firebase_enabled():
     return current_app.config.get("AUTH_PROVIDER") == "firebase"
 
 
+# When Firebase Auth gives one of these errors, the user might still be valid
+# locally (e.g. they were seeded into the local repo but never provisioned in
+# Firebase Auth yet). The login flow falls back to a local password check.
+RECOVERABLE_FIREBASE_ERRORS = {
+    "EMAIL_NOT_FOUND",
+    "USER_NOT_FOUND",
+    "INVALID_LOGIN_CREDENTIALS",  # current Firebase code for "no such user / wrong password"
+    "OPERATION_NOT_ALLOWED",
+    "CONFIGURATION_NOT_FOUND",
+    "MISSING_PASSWORD",
+    "MISSING_EMAIL",
+    "API_KEY_INVALID",
+    "NETWORK",  # synthetic — connection / DNS / timeout
+}
+
+
 def firebase_sign_in(email, password):
     api_key = current_app.config.get("FIREBASE_API_KEY")
     if not api_key:
-        return None, "Firebase API key is missing."
+        return None, {"code": "API_KEY_INVALID", "message": "Firebase API key is missing."}
 
     payload = json.dumps(
         {
@@ -29,16 +45,19 @@ def firebase_sign_in(email, password):
     )
     try:
         with urllib.request.urlopen(request, timeout=12) as response:
-            return json.loads(response.read().decode("utf-8")), ""
+            return json.loads(response.read().decode("utf-8")), None
     except urllib.error.HTTPError as error:
         try:
             body = json.loads(error.read().decode("utf-8"))
-            message = body.get("error", {}).get("message", "Firebase login failed.")
+            firebase_error = body.get("error", {})
+            message = firebase_error.get("message", "Firebase login failed.")
+            code = (message.split(":", 1)[0] or "").strip().upper().replace(" ", "_")
         except json.JSONDecodeError:
             message = "Firebase login failed."
-        return None, message
+            code = "UNKNOWN"
+        return None, {"code": code, "message": message}
     except urllib.error.URLError:
-        return None, "Firebase login service is not reachable."
+        return None, {"code": "NETWORK", "message": "Firebase login service is not reachable."}
 
 
 def provision_firebase_user(user, password):

@@ -1,16 +1,25 @@
-"""Prepare a Firebase service-account JSON for pasting into Vercel env vars.
+"""Print Firebase env vars formatted for paste-into-Vercel.
 
-Vercel env-var inputs accept multi-line text just fine — but you can only paste
-one value at a time. This script reads a serviceAccount.json file, validates
-that it looks like a Firebase service-account, and prints the value to copy.
+Reads serviceAccount.json (downloaded from the Firebase console), validates
+it, and prints the four env vars Vercel needs:
+
+  APP_STORAGE_MODE
+  FIREBASE_PROJECT_ID
+  SECRET_KEY
+  FIREBASE_CREDENTIALS_JSON
 
 Usage:
     python scripts/prepare_vercel_env.py
     python scripts/prepare_vercel_env.py --file serviceAccount.json
-    python scripts/prepare_vercel_env.py --file serviceAccount.json --one-line
+    python scripts/prepare_vercel_env.py --auth firebase   # also prints AUTH_PROVIDER
+    python scripts/prepare_vercel_env.py --one-line        # compact JSON
+    python scripts/prepare_vercel_env.py --dotenv .env.vercel  # write a .env-style file
 """
 import argparse
 import json
+import os
+import secrets
+import string
 import sys
 from pathlib import Path
 
@@ -21,76 +30,97 @@ REQUIRED_KEYS = {
 }
 
 
+def generate_secret(length=64):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*-_=+"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--file", default="serviceAccount.json",
                         help="Path to the Firebase service-account JSON file (default: serviceAccount.json)")
+    parser.add_argument("--auth", choices=["firebase", "local"], default="firebase",
+                        help="Value for AUTH_PROVIDER (default: firebase)")
     parser.add_argument("--one-line", action="store_true",
-                        help="Print the JSON as a single line (use this if Vercel env input loses newlines)")
+                        help="Print FIREBASE_CREDENTIALS_JSON as a single compact line")
+    parser.add_argument("--dotenv",
+                        help="Also write the env vars to this .env-style file (e.g. .env.vercel)")
+    parser.add_argument("--secret-key", default=None,
+                        help="Use this SECRET_KEY instead of generating a fresh one")
     args = parser.parse_args()
 
     path = Path(args.file)
     if not path.exists():
         sys.exit(
-            f"File not found: {path}\n\n"
-            "Download a service-account JSON from:\n"
-            "  https://console.firebase.google.com/project/<your-project>/settings/serviceaccounts/adminsdk\n"
-            "Save it as serviceAccount.json in this folder, then re-run."
+            f"\nFile not found: {path}\n\n"
+            "How to get serviceAccount.json:\n"
+            "  1. Open  https://console.firebase.google.com/project/kg-ticket/settings/serviceaccounts/adminsdk\n"
+            "  2. Click 'Generate new private key' (downloads a JSON file)\n"
+            "  3. Save it as 'serviceAccount.json' here (or pass --file <path>)\n"
+            "  4. Re-run this script.\n"
         )
 
     raw = path.read_text(encoding="utf-8")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        sys.exit(f"That file is not valid JSON: {e}")
+        sys.exit(f"\n{path} is not valid JSON: {e}")
 
     missing = REQUIRED_KEYS - set(data.keys())
     if missing:
-        sys.exit(f"This does not look like a Firebase service account. Missing keys: {sorted(missing)}")
+        sys.exit(f"\n{path} is not a Firebase service account. Missing keys: {sorted(missing)}")
 
-    project_id = data.get("project_id", "")
+    project_id   = data.get("project_id", "")
     client_email = data.get("client_email", "")
+    secret_key   = args.secret_key or generate_secret()
+    cred_value   = json.dumps(data, separators=(",", ":")) if args.one_line else json.dumps(data, indent=2)
+
+    api_key = os.environ.get("FIREBASE_API_KEY", "")
+
+    env_vars = [
+        ("APP_NAME",                "KG Ticket Control"),
+        ("SECRET_KEY",              secret_key),
+        ("APP_STORAGE_MODE",        "firebase"),
+        ("AUTH_PROVIDER",           args.auth),
+        ("FIREBASE_PROJECT_ID",     project_id),
+        *([("FIREBASE_API_KEY",     api_key)] if api_key else []),
+        ("FIREBASE_CREDENTIALS_JSON", cred_value),
+    ]
 
     print()
-    print("=" * 72)
-    print("  Vercel Environment Variables — paste each value separately")
-    print("=" * 72)
-    print()
-    print(f"  Name:  APP_STORAGE_MODE")
-    print(f"  Value: firebase")
-    print()
-    print(f"  Name:  FIREBASE_PROJECT_ID")
-    print(f"  Value: {project_id}")
-    print()
-    print(f"  Name:  SECRET_KEY")
-    print(f"  Value: (paste any long random string, e.g. {generate_secret()})")
-    print()
-    print(f"  Name:  FIREBASE_CREDENTIALS_JSON")
-    print(f"  Value: (the JSON content shown below)")
-    print()
-    print("-" * 72)
-    print(f"  Service account email: {client_email}")
-    print("-" * 72)
-    print()
+    print("=" * 76)
+    print("  Vercel Environment Variables")
+    print("  Paste each Name/Value pair under Settings → Environment Variables")
+    print(f"  Service account: {client_email}")
+    print("=" * 76)
 
-    if args.one_line:
-        # Compact JSON, no whitespace.
-        print(json.dumps(data, separators=(",", ":")))
-    else:
-        # Pretty JSON — Vercel env-var inputs preserve newlines and load it fine.
-        print(json.dumps(data, indent=2))
+    for name, value in env_vars:
+        print()
+        print(f"  Name:  {name}")
+        if "\n" in value:
+            print(f"  Value (multi-line, paste verbatim):")
+            for line in value.splitlines():
+                print(f"    {line}")
+        else:
+            print(f"  Value: {value}")
 
     print()
-    print("=" * 72)
-    print("  After setting all 4 env vars, click 'Redeploy' on the latest")
-    print("  deployment in Vercel. The app should boot in under 30 seconds.")
-    print("=" * 72)
+    print("=" * 76)
+    print("  After saving all variables, redeploy from Vercel → Deployments")
+    print("=" * 76)
 
-
-def generate_secret(length=48):
-    import secrets, string
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    if args.dotenv:
+        out = Path(args.dotenv)
+        with out.open("w", encoding="utf-8") as f:
+            f.write("# Generated by scripts/prepare_vercel_env.py\n")
+            f.write("# Paste these as Environment Variables in Vercel.\n\n")
+            for name, value in env_vars:
+                if "\n" in value:
+                    # quote multi-line value as a single literal
+                    f.write(f"{name}='{value}'\n")
+                else:
+                    f.write(f"{name}={value}\n")
+        print(f"\n  Wrote: {out.resolve()}")
 
 
 if __name__ == "__main__":
