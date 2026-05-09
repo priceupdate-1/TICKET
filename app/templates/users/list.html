@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block page_title %}Users{% endblock %}
+{% block page_subtitle %}Create, edit, activate, deactivate, reset password, and soft delete users.{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>User List</h2>
+        <p>Deleted users are hidden from this active management view.</p>
+      </div>
+      <a class="button button-primary" href="{{ url_for('users.add_user') }}">Add User</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Employee Code</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Mobile</th>
+            <th>Department</th>
+            <th>Designation</th>
+            <th>User Type</th>
+            <th>Role</th>
+            <th>System Access</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>{{ user.employeeCode }}</td>
+              <td><strong>{{ user.fullName }}</strong></td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.mobileNo or "-" }}</td>
+              <td>{{ departments.get(user.departmentId, {}).get("name", "-") }}</td>
+              <td>{{ user.designation or "-" }}</td>
+              <td>{{ user_types.get(user.userTypeId, {}).get("name", "-") }}</td>
+              <td>{{ roles.get(user.roleId, {}).get("name", "-") }}</td>
+              <td>{{ ", ".join(user.systemAccess) if user.systemAccess else "-" }}</td>
+              <td><span class="status {{ 'status-on' if user.isActive else 'status-off' }}">{{ "Active" if user.isActive else "Inactive" }}</span></td>
+              <td class="action-cell">
+                <a class="icon-button" title="View" href="{{ url_for('users.view_user', uid=user.uid) }}">View</a>
+                <a class="icon-button" title="Edit" href="{{ url_for('users.edit_user', uid=user.uid) }}">Edit</a>
+                {% if user.isActive %}
+                  <form method="post" action="{{ url_for('users.deactivate_user', uid=user.uid) }}">
+                    <button class="icon-button" title="Deactivate" type="submit">Deactivate</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('users.activate_user', uid=user.uid) }}">
+                    <button class="icon-button" title="Activate" type="submit">Activate</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('users.delete_user', uid=user.uid) }}">
+                  <button class="icon-button danger" title="Soft delete" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

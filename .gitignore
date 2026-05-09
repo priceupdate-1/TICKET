@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+serviceAccount.json
+firebase-credentials.json
+data/phase1_store.json
+data/*_test_store.json
+node_modules/
+.vercel
+*.log
+.DS_Store
+.claude/

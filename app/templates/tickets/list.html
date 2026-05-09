@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ page_heading }}{% endblock %}
+{% block page_subtitle %}{{ page_description }}{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>{{ page_heading }}</h2>
+        <p>{{ tickets|length }} ticket{{ "" if tickets|length == 1 else "s" }} found.</p>
+      </div>
+      {% if current_permissions.canCreateTicket %}
+        <a class="button button-primary" href="{{ url_for('tickets.create_ticket') }}">+ Create Ticket</a>
+      {% endif %}
+    </div>
+
+    {% if tickets %}
+      <div class="table-wrap" style="border:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Title</th>
+              <th>System</th>
+              <th>Area</th>
+              <th>Priority</th>
+              <th>From</th>
+              <th>Assigned</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+              <tr>
+                <td><strong>{{ ticket.ticketNo }}</strong></td>
+                <td class="title-cell">{{ ticket.title }}</td>
+                <td>{{ ticket.systemName }}</td>
+                <td>{{ ticket.areaName }}</td>
+                <td>{{ ticket.priority }}</td>
+                <td>{{ ticket.createdByName }}</td>
+                <td>{{ ticket.assignedToName or ticket.assignedTeamName or "—" }}</td>
+                <td><span class="ticket-status {{ ticket.status|status_css }}">{{ ticket.status|friendly_status }}</span></td>
+                <td>{{ ticket.updatedAt|ago }}</td>
+                <td class="action-cell">
+                  <a class="icon-button btn-sm" href="{{ url_for('tickets.view_ticket', ticket_id=ticket.id) }}">Open</a>
+                  {% if ticket.createdBy == current_user.uid and ticket.status in ["Draft", "Need More Information"] %}
+                    <a class="icon-button btn-sm" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Edit</a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        No tickets in this queue.
+        {% if current_permissions.canCreateTicket %}
+          <div style="margin-top:12px"><a class="button button-primary" href="{{ url_for('tickets.create_ticket') }}">Create your first ticket</a></div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

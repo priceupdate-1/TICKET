@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block page_title %}Profile{% endblock %}
+{% block page_subtitle %}Update personal contact and notification preferences.{% endblock %}
+
+{% block content %}
+  <form class="form-layout" method="post">
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>{{ user.fullName }}</h2>
+          <p>{{ user.email }}</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>Employee Code</span>
+          <input value="{{ user.employeeCode }}" readonly />
+        </label>
+        <label>
+          <span>Mobile No.</span>
+          <input name="mobileNo" value="{{ user.mobileNo or '' }}" />
+        </label>
+        <label>
+          <span>New Password</span>
+          <input type="password" name="password" placeholder="Leave blank to keep existing" />
+        </label>
+        <label class="check-line">
+          <input type="checkbox" name="notificationEmail" {% if user.notificationEmail %}checked{% endif %} />
+          Email Notification
+        </label>
+        <label class="check-line">
+          <input type="checkbox" name="notificationInApp" {% if user.notificationInApp %}checked{% endif %} />
+          In-App Notification
+        </label>
+      </div>
+    </section>
+    <div class="sticky-actions">
+      <button class="button button-primary" type="submit">Update Profile</button>
+    </div>
+  </form>
+{% endblock %}

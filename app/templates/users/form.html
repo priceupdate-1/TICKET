@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ "Add User" if mode == "add" else "Edit User" }}{% endblock %}
+{% block page_subtitle %}Maintain basic details, access, permissions, and notification preference.{% endblock %}
+
+{% block content %}
+  <form class="form-layout" method="post">
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Basic Details</h2>
+          <p>Email is locked after creation to keep identity stable.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>Employee Code</span>
+          <input name="employeeCode" value="{{ user.employeeCode if user else '' }}" {% if mode == "edit" %}readonly{% endif %} required />
+        </label>
+        <label>
+          <span>Full Name</span>
+          <input name="fullName" value="{{ user.fullName if user else '' }}" required />
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" value="{{ user.email if user else '' }}" {% if mode == "edit" %}readonly{% endif %} required />
+        </label>
+        <label>
+          <span>Mobile No.</span>
+          <input name="mobileNo" value="{{ user.mobileNo if user else '' }}" />
+        </label>
+        <label>
+          <span>Department</span>
+          <select name="departmentId">
+            <option value="">Select department</option>
+            {% for department in departments %}
+              <option value="{{ department.id }}" {% if user and user.departmentId == department.id %}selected{% endif %}>{{ department.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Designation</span>
+          <input name="designation" value="{{ user.designation if user else '' }}" />
+        </label>
+        <label>
+          <span>Reporting Manager</span>
+          <select name="reportingManagerId">
+            <option value="">No manager</option>
+            {% for manager in managers %}
+              <option value="{{ manager.uid }}" {% if user and user.reportingManagerId == manager.uid %}selected{% endif %}>{{ manager.fullName }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>{{ "Initial Password" if mode == "add" else "New Password" }}</span>
+          <input type="password" name="password" placeholder="{{ 'Required' if mode == 'add' else 'Leave blank to keep existing' }}" />
+        </label>
+      </div>
+    </section>
+
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Access Details</h2>
+          <p>User type, role, dashboard, status, and system access.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>User Type</span>
+          <select name="userTypeId" required>
+            <option value="">Select user type</option>
+            {% for user_type in user_types %}
+              <option value="{{ user_type.id }}" {% if user and user.userTypeId == user_type.id %}selected{% endif %}>{{ user_type.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Role</span>
+          <select name="roleId" required>
+            <option value="">Select role</option>
+            {% for role in roles %}
+              <option value="{{ role.id }}" {% if user and user.roleId == role.id %}selected{% endif %}>{{ role.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Default Dashboard</span>
+          <select name="defaultDashboard">
+            {% for dashboard in dashboard_options %}
+              <option value="{{ dashboard }}" {% if user and user.defaultDashboard == dashboard %}selected{% endif %}>{{ dashboard|title }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="check-group">
+          <span>System Access</span>
+          {% for system in system_access_options %}
+            <label class="check-line">
+              <input type="checkbox" name="systemAccess" value="{{ system }}" {% if user and system in user.systemAccess %}checked{% endif %} />
+              {{ system }}
+            </label>
+          {% endfor %}
+        </div>
+        <label class="check-line">
+          <input type="checkbox" name="isActive" {% if user is none or user.isActive %}checked{% endif %} />
+          Active
+        </label>
+      </div>
+    </section>
+
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Permission Details</h2>
+          <p>These flags control menus and protected pages.</p>
+        </div>
+      </div>
+      <div class="permission-grid">
+        {% for key, label in permission_options %}
+          <label class="check-line">
+            <input type="checkbox" name="{{ key }}" {% if permissions.get(key) %}checked{% endif %} />
+            {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Notification Preference</h2>
+          <p>Email and in-app preferences are stored on the user record.</p>
+        </div>
+      </div>
+      <div class="inline-controls">
+        <label class="check-line">
+          <input type="checkbox" name="notificationEmail" {% if user is none or user.notificationEmail %}checked{% endif %} />
+          Email Notification
+        </label>
+        <label class="check-line">
+          <input type="checkbox" name="notificationInApp" {% if user is none or user.notificationInApp %}checked{% endif %} />
+          In-App Notification
+        </label>
+      </div>
+    </section>
+
+    <div class="sticky-actions">
+      <a class="button button-ghost" href="{{ url_for('users.list_users') }}">Cancel</a>
+      <button class="button button-primary" type="submit">{{ "Create User" if mode == "add" else "Save Changes" }}</button>
+    </div>
+  </form>
+{% endblock %}

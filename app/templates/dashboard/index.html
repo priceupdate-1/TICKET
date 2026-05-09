@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block page_title %}Hi {{ current_user.fullName.split(" ")[0] }}{% endblock %}
+{% block page_subtitle %}{{ greeting_subtitle }}{% endblock %}
+
+{% block content %}
+  <section class="metric-grid">
+    {% for card in cards %}
+      <div class="metric {{ card.cls }}">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        {% if card.foot %}<small>{{ card.foot }}</small>{% endif %}
+      </div>
+    {% endfor %}
+  </section>
+
+  {% if pending_for_me %}
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Waiting for Your Approval</h2>
+          <p>{{ pending_for_me|length }} ticket{{ "" if pending_for_me|length == 1 else "s" }} need a decision.</p>
+        </div>
+      </div>
+      <div class="table-wrap" style="border:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Title</th>
+              <th>System</th>
+              <th>From</th>
+              <th>Priority</th>
+              <th>Updated</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in pending_for_me %}
+              <tr>
+                <td><strong>{{ t.ticketNo }}</strong></td>
+                <td class="title-cell">{{ t.title }}</td>
+                <td>{{ t.systemName }}</td>
+                <td>{{ t.createdByName }}</td>
+                <td>{{ t.priority }}</td>
+                <td>{{ t.updatedAt|ago }}</td>
+                <td class="action-cell">
+                  <a class="button button-primary btn-sm" href="{{ url_for('tickets.view_ticket', ticket_id=t.id) }}">Open</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Recent Tickets</h2>
+        <p>Latest activity across your queue.</p>
+      </div>
+      {% if current_permissions.canCreateTicket %}
+        <a class="button button-primary" href="{{ url_for('tickets.create_ticket') }}">+ Create Ticket</a>
+      {% endif %}
+    </div>
+    {% if recent_tickets %}
+      <div class="table-wrap" style="border:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Title</th>
+              <th>System</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in recent_tickets %}
+              <tr onclick="window.location='{{ url_for('tickets.view_ticket', ticket_id=t.id) }}'" style="cursor:pointer">
+                <td><strong>{{ t.ticketNo }}</strong></td>
+                <td class="title-cell">{{ t.title }}</td>
+                <td>{{ t.systemName }}</td>
+                <td><span class="ticket-status {{ t.status|status_css }}">{{ t.status|friendly_status }}</span></td>
+                <td>{{ t.priority }}</td>
+                <td>{{ t.updatedAt|ago }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">No tickets yet. Create your first one to get started.</div>
+    {% endif %}
+  </section>
+{% endblock %}

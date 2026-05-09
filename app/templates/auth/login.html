@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · {{ app_name }}{% endblock %}
+
+{% block public_content %}
+  <main class="auth-page">
+    <section class="login-panel">
+      <div class="login-copy">
+        <div class="brand-login">
+          <span class="brand-mark">KG</span>
+          <div>
+            <strong>KG Ticket Control</strong>
+            <small>Lattice · Trybe</small>
+          </div>
+        </div>
+        <div>
+          <h1>Sign in to your workspace.</h1>
+          <p>Track Lattice and Trybe issues, route approvals, and resolve tickets — all in one place.</p>
+        </div>
+      </div>
+      <form class="login-form" method="post" novalidate>
+        <h2>Welcome back</h2>
+        <p>Enter your credentials to continue.</p>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" value="{{ email or '' }}" required autofocus placeholder="you@company.com" />
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" required placeholder="••••••••" />
+        </label>
+        <button class="button button-primary" type="submit">Sign In</button>
+        <p class="form-note">Seed admin: <strong>admin@company.com</strong> · Admin@123</p>
+      </form>
+    </section>
+  </main>
+{% endblock %}

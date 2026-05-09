@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block page_title %}Settings{% endblock %}
+{% block page_subtitle %}Phase 1 settings and Firebase readiness status.{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Firebase Base Setup</h2>
+        <p>The Flask app currently uses local JSON storage that mirrors the Phase 1 and Phase 2 Firestore collections.</p>
+      </div>
+    </div>
+    <div class="module-grid">
+      <div class="module-row"><strong>users</strong><span>Ready</span></div>
+      <div class="module-row"><strong>userTypes</strong><span>Ready</span></div>
+      <div class="module-row"><strong>roles</strong><span>Ready</span></div>
+      <div class="module-row"><strong>userPermissions</strong><span>Ready</span></div>
+      <div class="module-row"><strong>departments</strong><span>Ready</span></div>
+      <div class="module-row"><strong>auditLogs</strong><span>Ready</span></div>
+      <div class="module-row"><strong>systems</strong><span>Ready</span></div>
+      <div class="module-row"><strong>categories</strong><span>Ready</span></div>
+      <div class="module-row"><strong>areas</strong><span>Ready</span></div>
+      <div class="module-row"><strong>teams</strong><span>Ready</span></div>
+      <div class="module-row"><strong>tickets</strong><span>Ready</span></div>
+      <div class="module-row"><strong>ticketNotes</strong><span>Ready</span></div>
+      <div class="module-row"><strong>ticketStatusHistory</strong><span>Ready</span></div>
+      <div class="module-row"><strong>ticketCounters</strong><span>Ready</span></div>
+    </div>
+  </section>
+
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Deferred Modules</h2>
+        <p>These remain out of scope until later phases.</p>
+      </div>
+    </div>
+    <div class="module-grid">
+      <div class="module-row"><strong>Ticket Creation</strong><span>Ready</span></div>
+      <div class="module-row"><strong>Ticket Authorization</strong><span>Ready</span></div>
+      <div class="module-row"><strong>Team Workflow</strong><span>Ready</span></div>
+      <div class="module-row"><strong>SMTP Email</strong><span>Phase 7</span></div>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
+  </head>
+  <body>
+    {% if current_user %}
+      {% set req_path = request.path %}
+      <div class="app-frame">
+        <aside class="sidebar">
+          <div class="brand">
+            <span class="brand-mark">KG</span>
+            <div>
+              <strong>Ticket Control</strong>
+              <small>Lattice · Trybe</small>
+            </div>
+          </div>
+
+          <a class="nav-link {% if req_path.startswith('/dashboard') %}is-active{% endif %}" href="{{ url_for('dashboard.dashboard') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            Dashboard
+          </a>
+
+          <div class="nav-section-label">Tickets</div>
+
+          {% if current_permissions.canCreateTicket %}
+            <a class="nav-link {% if req_path == '/tickets/new' %}is-active{% endif %}" href="{{ url_for('tickets.create_ticket') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create Ticket
+            </a>
+          {% endif %}
+
+          {% if current_permissions.canViewOwnTicket %}
+            <a class="nav-link {% if req_path == '/tickets/mine' %}is-active{% endif %}" href="{{ url_for('tickets.my_tickets') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              My Tickets
+            </a>
+          {% endif %}
+
+          <a class="nav-link {% if req_path == '/tickets/' or req_path == '/tickets' %}is-active{% endif %}" href="{{ url_for('tickets.all_tickets') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            All Tickets
+          </a>
+
+          {% if current_permissions.canApproveTicket %}
+            <a class="nav-link {% if 'pending' in req_path %}is-active{% endif %}" href="{{ url_for('tickets.pending_authorization') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Waiting Approval
+            </a>
+          {% endif %}
+
+          {% if current_permissions.canWorkOnTicket %}
+            <a class="nav-link {% if 'team' in req_path %}is-active{% endif %}" href="{{ url_for('tickets.team_tickets') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Team Queue
+            </a>
+          {% endif %}
+
+          <a class="nav-link {% if 'completed' in req_path %}is-active{% endif %}" href="{{ url_for('tickets.completed_tickets') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Completed
+          </a>
+
+          {% if current_permissions.canManageUsers %}
+            <div class="nav-section-label">Admin</div>
+            <a class="nav-link {% if req_path.startswith('/users') %}is-active{% endif %}" href="{{ url_for('users.list_users') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Users
+            </a>
+            <a class="nav-link {% if 'audit' in req_path %}is-active{% endif %}" href="{{ url_for('settings.audit_log') }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Audit Log
+            </a>
+          {% endif %}
+
+          <div class="nav-section-label">Account</div>
+          <a class="nav-link {% if req_path.startswith('/profile') %}is-active{% endif %}" href="{{ url_for('profile.profile') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </a>
+          <a class="nav-link {% if req_path.startswith('/settings') %}is-active{% endif %}" href="{{ url_for('settings.settings') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+          </a>
+        </aside>
+
+        <div class="workspace">
+          <header class="topbar">
+            <div class="topbar-titles">
+              <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+              <p>{% block page_subtitle %}Track, approve, and resolve tickets.{% endblock %}</p>
+            </div>
+            <div class="top-actions">
+              <div style="position:relative" id="notif-wrap">
+                <button class="notif-bell" type="button" id="notif-toggle" aria-label="Notifications">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                </button>
+                <div class="notif-dropdown" id="notif-dropdown">
+                  <div class="notif-header">
+                    <span>Notifications</span>
+                  </div>
+                  <div class="notif-empty">No notifications yet.</div>
+                </div>
+              </div>
+
+              <div class="profile-chip">
+                <span class="profile-avatar">{{ current_user.fullName|initials }}</span>
+                <div>
+                  <strong>{{ current_user.fullName }}</strong>
+                  <small>{{ current_user.email }}</small>
+                </div>
+              </div>
+              <form method="post" action="{{ url_for('auth.logout') }}" style="margin:0">
+                <button class="button button-ghost" type="submit">Logout</button>
+              </form>
+            </div>
+          </header>
+
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <div class="flash-stack">
+                {% for category, message in messages %}
+                  <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
+
+          <main class="content">
+            {% block content %}{% endblock %}
+          </main>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          var toggle = document.getElementById('notif-toggle');
+          var dropdown = document.getElementById('notif-dropdown');
+          var wrap = document.getElementById('notif-wrap');
+          if (!toggle || !dropdown || !wrap) return;
+          toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('is-open');
+          });
+          document.addEventListener('click', function (e) {
+            if (!wrap.contains(e.target)) dropdown.classList.remove('is-open');
+          });
+          document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+              if (!window.confirm(form.dataset.confirm)) e.preventDefault();
+            });
+          });
+        })();
+      </script>
+    {% else %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="auth-flash">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block public_content %}{% endblock %}
+    {% endif %}
+  </body>
+</html>

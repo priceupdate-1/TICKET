@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ "Create Ticket" if mode == "create" else "Edit Ticket" }}{% endblock %}
+{% block page_subtitle %}Tell us what's wrong — we'll route it to the right person.{% endblock %}
+
+{% block content %}
+  <form class="form-layout" method="post">
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>What's the issue?</h2>
+          <p>Submit sends it to the right authorized person automatically.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>System</span>
+          <select name="systemId" required>
+            <option value="">Select system</option>
+            {% for system in systems %}
+              <option value="{{ system.id }}" {% if ticket and ticket.systemId == system.id %}selected{% endif %}>{{ system.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Issue Type</span>
+          <select name="categoryId" required>
+            <option value="">Select type</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if ticket and ticket.categoryId == category.id %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Area</span>
+          <select name="areaId" required>
+            <option value="">Select area</option>
+            {% for area in areas %}
+              <option value="{{ area.id }}" {% if ticket and ticket.areaId == area.id %}selected{% endif %}>{{ area.systemName }} — {{ area.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>How urgent is it?</span>
+          <select name="priority" required>
+            <option value="">Select urgency</option>
+            {% for priority in priorities %}
+              <option value="{{ priority }}" {% if ticket and ticket.priority == priority %}selected{% endif %}>{{ priority }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="span-2">
+          <span>Title</span>
+          <input name="title" value="{{ ticket.title if ticket else '' }}" minlength="5" required placeholder="Short summary — e.g. 'Pricing report not loading'" />
+        </label>
+        <label class="span-2">
+          <span>Explain the issue</span>
+          <textarea name="description" minlength="20" required placeholder="What happened? What did you expect? Any error messages?">{{ ticket.description if ticket else '' }}</textarea>
+        </label>
+        <label>
+          <span>Expected Date (optional)</span>
+          <input type="date" name="expectedDate" value="{{ ticket.expectedDate if ticket and ticket.expectedDate else '' }}" />
+        </label>
+        <label>
+          <span>Attachment Name (optional)</span>
+          <input name="attachmentName" placeholder="screenshot.png or mapping.xlsx" />
+        </label>
+      </div>
+    </section>
+    <div class="sticky-actions">
+      <a class="button button-ghost" href="{{ url_for('tickets.my_tickets') }}">Cancel</a>
+      <button class="button" type="submit" name="intent" value="draft">Save Draft</button>
+      <button class="button button-primary" type="submit" name="intent" value="submit">Submit Ticket</button>
+    </div>
+  </form>
+{% endblock %}

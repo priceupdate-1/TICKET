@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block page_title %}Audit Log{% endblock %}
+{% block page_subtitle %}User management and permission changes are recorded here.{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Audit Records</h2>
+        <p>Newest records appear first.</p>
+      </div>
+    </div>
+    {% include "partials/audit_table.html" %}
+  </section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block page_title %}Unauthorized{% endblock %}
+{% block page_subtitle %}Your current permissions do not allow access to this page.{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="empty-state">
+      Access is blocked by the permission guard. Contact an admin if this user needs access.
+    </div>
+    <div class="sticky-actions">
+      <a class="button button-primary" href="{{ url_for('dashboard.dashboard') }}">Back to Dashboard</a>
+    </div>
+  </section>
+{% endblock %}

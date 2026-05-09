@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block page_title %}View User{% endblock %}
+{% block page_subtitle %}Review profile, access, permission flags, and lifecycle status.{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>{{ user.fullName }}</h2>
+        <p>{{ user.email }}</p>
+      </div>
+      <div class="inline-controls">
+        <a class="button button-ghost" href="{{ url_for('users.list_users') }}">Back</a>
+        <a class="button button-primary" href="{{ url_for('users.edit_user', uid=user.uid) }}">Edit</a>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div><span>Employee Code</span><strong>{{ user.employeeCode }}</strong></div>
+      <div><span>Mobile No.</span><strong>{{ user.mobileNo or "-" }}</strong></div>
+      <div><span>Department</span><strong>{{ departments.get(user.departmentId, {}).get("name", "-") }}</strong></div>
+      <div><span>Designation</span><strong>{{ user.designation or "-" }}</strong></div>
+      <div><span>User Type</span><strong>{{ user_types.get(user.userTypeId, {}).get("name", "-") }}</strong></div>
+      <div><span>Role</span><strong>{{ roles.get(user.roleId, {}).get("name", "-") }}</strong></div>
+      <div><span>System Access</span><strong>{{ ", ".join(user.systemAccess) if user.systemAccess else "-" }}</strong></div>
+      <div><span>Status</span><strong>{{ "Active" if user.isActive else "Inactive" }}</strong></div>
+      <div><span>Created At</span><strong>{{ user.createdAt[:19].replace("T", " ") }}</strong></div>
+      <div><span>Updated At</span><strong>{{ user.updatedAt[:19].replace("T", " ") }}</strong></div>
+    </div>
+  </section>
+
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Permissions</h2>
+        <p>Granted permissions are marked as enabled.</p>
+      </div>
+    </div>
+    <div class="permission-grid">
+      {% for key, label in permission_options %}
+        <div class="permission-pill {{ 'is-on' if permissions.get(key) else '' }}">{{ label }}</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Account Actions</h2>
+        <p>Password reset uses a temporary local password in this Phase 1 build.</p>
+      </div>
+    </div>
+    <div class="inline-controls">
+      <form method="post" action="{{ url_for('users.reset_password', uid=user.uid) }}">
+        <button class="button button-ghost" type="submit">Reset Password</button>
+      </form>
+      {% if user.isActive %}
+        <form method="post" action="{{ url_for('users.deactivate_user', uid=user.uid) }}">
+          <button class="button button-ghost" type="submit">Deactivate</button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('users.activate_user', uid=user.uid) }}">
+          <button class="button button-ghost" type="submit">Activate</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('users.delete_user', uid=user.uid) }}">
+        <button class="button button-danger" type="submit">Soft Delete</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% if audit_logs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Module</th>
+          <th>Record</th>
+          <th>By</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in audit_logs %}
+          <tr>
+            <td><strong>{{ log.action }}</strong></td>
+            <td>{{ log.module }}</td>
+            <td>{{ log.recordId }}</td>
+            <td>{{ log.createdByName }}</td>
+            <td>{{ log.createdAt[:19].replace("T", " ") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state">No audit records available.</div>
+{% endif %}

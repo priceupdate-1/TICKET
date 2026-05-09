@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ ticket.ticketNo }}{% endblock %}
+{% block page_subtitle %}{{ ticket.title }}{% endblock %}
+
+{% block content %}
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>{{ ticket.title }}</h2>
+        <p>{{ ticket.systemName }} · {{ ticket.areaName }} · {{ ticket.categoryName }}</p>
+      </div>
+      <div class="inline-controls">
+        <span class="ticket-status {{ ticket.status|status_css }}">{{ ticket.status|friendly_status }}</span>
+        {% if can_edit %}
+          <a class="button" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Edit</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div><span>Ticket No</span><strong>{{ ticket.ticketNo }}</strong></div>
+      <div><span>Priority</span><strong>{{ ticket.priority }}</strong></div>
+      <div><span>From</span><strong>{{ ticket.createdByName }}</strong></div>
+      <div><span>Authorizer</span><strong>{{ ticket.authorizedPersonName or "—" }}</strong></div>
+      <div><span>Team</span><strong>{{ ticket.assignedTeamName or "—" }}</strong></div>
+      <div><span>Assigned To</span><strong>{{ ticket.assignedToName or "—" }}</strong></div>
+      <div><span>Expected</span><strong>{{ ticket.expectedDate or "—" }}</strong></div>
+      <div><span>Due</span><strong>{{ ticket.dueDate or "—" }}</strong></div>
+      <div><span>Created</span><strong>{{ ticket.createdAt|ago }}</strong></div>
+      <div><span>Updated</span><strong>{{ ticket.updatedAt|ago }}</strong></div>
+      <div><span>Reopens</span><strong>{{ ticket.reopenCount }}</strong></div>
+      <div><span>Closed</span><strong>{{ ticket.closedAt|ago if ticket.closedAt else "—" }}</strong></div>
+    </div>
+    <div class="description-block">{{ ticket.description }}</div>
+  </section>
+
+  {% if can_approve or can_reject or can_more_info or can_assign_member or can_start_work or can_complete or can_close or can_reopen %}
+    <section class="ticket-action-grid">
+      {% if can_approve %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.approve_ticket', ticket_id=ticket.id) }}">
+          <h2>Approve</h2>
+          <p style="color:var(--muted); font-size:12px; margin:0 0 12px">Send to a team to start work.</p>
+          <label>
+            <span>Route to Team</span>
+            <select name="teamId" required>
+              {% for team in teams %}
+                <option value="{{ team.id }}">{{ team.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Due Date</span>
+            <input type="date" name="dueDate" />
+          </label>
+          <label>
+            <span>Note (optional)</span>
+            <textarea name="note" placeholder="Approval context"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-primary" type="submit">Approve</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_more_info %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.need_more_info', ticket_id=ticket.id) }}">
+          <h2>Send Back</h2>
+          <p style="color:var(--muted); font-size:12px; margin:0 0 12px">Ask the requester for more details.</p>
+          <label>
+            <span>What do you need?</span>
+            <textarea name="note" required placeholder="Be specific about what's missing"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button" type="submit">Send Back</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_reject %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.reject_ticket', ticket_id=ticket.id) }}" data-confirm="Reject this ticket? This cannot be undone.">
+          <h2>Reject</h2>
+          <p style="color:var(--muted); font-size:12px; margin:0 0 12px">Decline the ticket with a reason.</p>
+          <label>
+            <span>Reason (required)</span>
+            <textarea name="reason" required placeholder="Why is this being rejected?"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-danger" type="submit">Reject</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_assign_member %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.assign_member', ticket_id=ticket.id) }}">
+          <h2>Assign Member</h2>
+          <label>
+            <span>Member</span>
+            <select name="memberId" required>
+              {% for member in members %}
+                <option value="{{ member.uid }}">{{ member.fullName }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Note (optional)</span>
+            <textarea name="note" placeholder="Assignment context"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-primary" type="submit">Assign</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_start_work %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.start_work', ticket_id=ticket.id) }}">
+          <h2>Start Work</h2>
+          <label>
+            <span>Note (optional)</span>
+            <textarea name="note" placeholder="What's the plan?"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-primary" type="submit">Start Work</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_complete %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.complete_ticket', ticket_id=ticket.id) }}">
+          <h2>Mark Done</h2>
+          <label>
+            <span>Resolution</span>
+            <textarea name="resolutionNote" required placeholder="What was done?"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-success" type="submit">Mark Done</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_close %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.close_ticket', ticket_id=ticket.id) }}" data-confirm="Close this ticket?">
+          <h2>Close Ticket</h2>
+          <label>
+            <span>Closure Note (optional)</span>
+            <textarea name="closureNote" placeholder="Verification or extra notes"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button button-success" type="submit">Close Ticket</button>
+          </div>
+        </form>
+      {% endif %}
+
+      {% if can_reopen %}
+        <form class="section-band" method="post" action="{{ url_for('tickets.reopen_ticket', ticket_id=ticket.id) }}" data-confirm="Reopen this ticket?">
+          <h2>Reopen</h2>
+          <label>
+            <span>Reason (required)</span>
+            <textarea name="reason" required placeholder="Why are you reopening?"></textarea>
+          </label>
+          <div class="inline-controls" style="margin-top:8px">
+            <button class="button" type="submit">Reopen</button>
+          </div>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="section-band">
+    <div class="section-header">
+      <div>
+        <h2>Conversation</h2>
+        <p>Public notes are visible to everyone on the ticket. Internal notes stay with approvers and team.</p>
+      </div>
+    </div>
+    {% if current_permissions.canAddNotes %}
+      <form class="note-form" method="post" action="{{ url_for('tickets.add_ticket_note', ticket_id=ticket.id) }}">
+        <select name="noteType">
+          {% for note_type in note_types %}
+            <option value="{{ note_type }}">{{ note_type }}</option>
+          {% endfor %}
+        </select>
+        <select name="visibility">
+          {% for visibility in note_visibilities %}
+            <option value="{{ visibility }}">{{ visibility }}</option>
+          {% endfor %}
+        </select>
+        <input name="noteText" placeholder="Add a note…" required />
+        <button class="button button-primary" type="submit">Add</button>
+      </form>
+    {% endif %}
+    <div class="timeline-list">
+      {% for note in notes %}
+        <article class="timeline-item">
+          <strong>{{ note.createdByName }}</strong>
+          <span style="margin-left:8px">· {{ note.noteType }} · {{ note.visibility }} · {{ note.createdAt|ago }}</span>
+          <p>{{ note.noteText }}</p>
+        </article>
+      {% else %}
+        <div class="empty-state">No notes yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if permissions.canViewAllTickets or permissions.canWorkOnTicket or permissions.canManageUsers %}
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Status History</h2>
+          <p>Every workflow transition is recorded.</p>
+        </div>
+      </div>
+      <div class="timeline-list">
+        {% for item in history %}
+          <article class="timeline-item">
+            <strong>{{ item.oldStatus|friendly_status or "New" }} → {{ item.newStatus|friendly_status }}</strong>
+            <span style="margin-left:8px">· {{ item.changedByName }} · {{ item.changedAt|ago }}</span>
+            {% if item.changeNote %}<p>{{ item.changeNote }}</p>{% endif %}
+          </article>
+        {% else %}
+          <div class="empty-state">No status history yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Attachments</h2>
+          <p>File metadata only. Firebase Storage upload can be wired later.</p>
+        </div>
+      </div>
+      <div class="timeline-list">
+        {% for attachment in attachments %}
+          <article class="timeline-item">
+            <strong>{{ attachment.fileName }}</strong>
+            <span style="margin-left:8px">· {{ attachment.uploadedByName }} · {{ attachment.uploadedAt|ago }}</span>
+          </article>
+        {% else %}
+          <div class="empty-state">No attachments.</div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if can_cancel %}
+    <section class="section-band">
+      <form method="post" action="{{ url_for('tickets.cancel_ticket', ticket_id=ticket.id) }}" class="inline-controls" data-confirm="Cancel this ticket?">
+        <input name="reason" placeholder="Cancellation reason" />
+        <button class="button button-danger" type="submit">Cancel Ticket</button>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}
