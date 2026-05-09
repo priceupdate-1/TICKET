@@ -17,6 +17,7 @@ COLLECTIONS = [
     "ticketNotes",
     "ticketStatusHistory",
     "ticketAttachments",
+    "notifications",
     "auditLogs",
 ]
 

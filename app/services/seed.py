@@ -265,6 +265,7 @@ def build_seed_data():
         "ticketNotes": [],
         "ticketStatusHistory": [],
         "ticketAttachments": [],
+        "notifications": [],
         "ticketCounters": {
             "default": {
                 "lastTicketNo": 0,

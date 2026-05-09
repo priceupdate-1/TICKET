@@ -473,6 +473,16 @@ class JsonRepository:
             actor,
             record_no=ticket_no,
         )
+        if submit and authorized_person:
+            self._notify(
+                data,
+                receiver_id=authorized_person["uid"],
+                title=f"New ticket waiting for approval",
+                message=f"{ticket_no} from {actor['fullName']}: {ticket['title']}",
+                ticket=ticket,
+                notification_type="ticket_created",
+                actor=actor,
+            )
         self._write(data)
         return ticket
 
@@ -549,6 +559,17 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Approval Note", note or "Ticket approved.", "Internal", actor)
         self._status_history(data, ticket, old_status, "Approved", actor, note or "Ticket approved.")
         self._audit(data, "Ticket", "APPROVE_TICKET", ticket_id, {"status": old_status}, {"status": "Approved"}, actor, record_no=ticket["ticketNo"])
+        # notify creator + team lead
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Ticket approved",
+                     message=f"{ticket['ticketNo']} approved and routed to {team['name']}.",
+                     ticket=ticket, notification_type="ticket_approved", actor=actor)
+        lead_id = self._team_lead_id(data, team["id"])
+        if lead_id:
+            self._notify(data, receiver_id=lead_id,
+                         title="New work for your team",
+                         message=f"{ticket['ticketNo']} approved and assigned to {team['name']}.",
+                         ticket=ticket, notification_type="team_assigned", actor=actor)
         self._write(data)
         return ticket
 
@@ -570,6 +591,10 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Rejection Note", reason, "Public", actor)
         self._status_history(data, ticket, old_status, "Rejected", actor, reason)
         self._audit(data, "Ticket", "REJECT_TICKET", ticket_id, {"status": old_status}, {"status": "Rejected"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Ticket rejected",
+                     message=f"{ticket['ticketNo']} rejected: {reason}",
+                     ticket=ticket, notification_type="ticket_rejected", actor=actor)
         self._write(data)
         return ticket
 
@@ -582,6 +607,10 @@ class JsonRepository:
         self._ticket_note(data, ticket, "More Information Note", note, "Public", actor)
         self._status_history(data, ticket, old_status, "Need More Information", actor, note)
         self._audit(data, "Ticket", "NEED_MORE_INFORMATION", ticket_id, {"status": old_status}, {"status": "Need More Information"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Need your reply",
+                     message=f"{ticket['ticketNo']} sent back: {note}",
+                     ticket=ticket, notification_type="more_info", actor=actor)
         self._write(data)
         return ticket
 
@@ -601,11 +630,32 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Internal Note", note or f"Assigned to {member['fullName']}.", "Internal", actor)
         self._status_history(data, ticket, old_status, "Assigned To Team", actor, note or "Team member assigned.")
         self._audit(data, "Ticket", "ASSIGN_MEMBER", ticket_id, {"status": old_status}, {"assignedTo": member["uid"]}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=member["uid"],
+                     title="Ticket assigned to you",
+                     message=f"{ticket['ticketNo']} assigned to you: {ticket['title']}",
+                     ticket=ticket, notification_type="member_assigned", actor=actor)
         self._write(data)
         return ticket
 
     def start_work(self, ticket_id, note, actor):
-        return self._set_ticket_status(ticket_id, "In Progress", "UPDATE_STATUS", note or "Work started.", "Work Note", actor)
+        data, ticket = self._ticket_for_update(ticket_id)
+        old_status = ticket["status"]
+        ticket["status"] = "In Progress"
+        ticket["updatedAt"] = utc_now()
+        ticket["updatedBy"] = actor["uid"]
+        self._ticket_note(data, ticket, "Work Note", note or "Work started.", "Public", actor)
+        self._status_history(data, ticket, old_status, "In Progress", actor, note or "Work started.")
+        self._audit(data, "Ticket", "UPDATE_STATUS", ticket_id, {"status": old_status}, {"status": "In Progress"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Work started on your ticket",
+                     message=f"{ticket['ticketNo']}: {ticket['title']}",
+                     ticket=ticket, notification_type="work_started", actor=actor)
+        self._notify(data, receiver_id=ticket.get("authorizedPersonId"),
+                     title="Team started work",
+                     message=f"{ticket['ticketNo']} is now in progress.",
+                     ticket=ticket, notification_type="work_started", actor=actor)
+        self._write(data)
+        return ticket
 
     def add_ticket_note(self, ticket_id, note_type, note_text, visibility, actor):
         data, ticket = self._ticket_for_update(ticket_id)
@@ -633,6 +683,14 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Resolution Note", resolution_note, "Public", actor)
         self._status_history(data, ticket, old_status, "Completed", actor, resolution_note)
         self._audit(data, "Ticket", "COMPLETE_TICKET", ticket_id, {"status": old_status}, {"status": "Completed"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("authorizedPersonId"),
+                     title="Work done — needs closure",
+                     message=f"{ticket['ticketNo']} marked done: {resolution_note}",
+                     ticket=ticket, notification_type="ticket_done", actor=actor)
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Your ticket is done",
+                     message=f"{ticket['ticketNo']}: {ticket['title']}",
+                     ticket=ticket, notification_type="ticket_done", actor=actor)
         self._write(data)
         return ticket
 
@@ -653,6 +711,15 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Closure Note", closure_note or "Ticket closed.", "Public", actor)
         self._status_history(data, ticket, old_status, "Closed", actor, closure_note or "Ticket closed.")
         self._audit(data, "Ticket", "CLOSE_TICKET", ticket_id, {"status": old_status}, {"status": "Closed"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("createdBy"),
+                     title="Ticket closed",
+                     message=f"{ticket['ticketNo']} closed: {ticket['title']}",
+                     ticket=ticket, notification_type="ticket_closed", actor=actor)
+        if ticket.get("assignedTo"):
+            self._notify(data, receiver_id=ticket.get("assignedTo"),
+                         title="Ticket closed",
+                         message=f"{ticket['ticketNo']} has been verified and closed.",
+                         ticket=ticket, notification_type="ticket_closed", actor=actor)
         self._write(data)
         return ticket
 
@@ -666,6 +733,15 @@ class JsonRepository:
         self._ticket_note(data, ticket, "Reopen Note", reason, "Public", actor)
         self._status_history(data, ticket, old_status, "Reopened", actor, reason)
         self._audit(data, "Ticket", "REOPEN_TICKET", ticket_id, {"status": old_status}, {"status": "Reopened"}, actor, record_no=ticket["ticketNo"])
+        self._notify(data, receiver_id=ticket.get("authorizedPersonId"),
+                     title="Ticket reopened",
+                     message=f"{ticket['ticketNo']} reopened by {actor['fullName']}: {reason}",
+                     ticket=ticket, notification_type="ticket_reopened", actor=actor)
+        if ticket.get("assignedTo"):
+            self._notify(data, receiver_id=ticket.get("assignedTo"),
+                         title="Ticket reopened",
+                         message=f"{ticket['ticketNo']} reopened — needs review.",
+                         ticket=ticket, notification_type="ticket_reopened", actor=actor)
         self._write(data)
         return ticket
 
@@ -680,6 +756,77 @@ class JsonRepository:
         self._audit(data, "Ticket", "DELETE_TICKET", ticket_id, {"status": old_status}, {"status": "Cancelled"}, actor, record_no=ticket["ticketNo"])
         self._write(data)
         return ticket
+
+    # ─── NOTIFICATIONS ─────────────────────────────────────────────
+    def notifications_for_user(self, uid, limit=20, only_unread=False):
+        """Return notifications for a given user, newest first."""
+        if not uid:
+            return []
+        items = [
+            n for n in self._read().get("notifications", [])
+            if n.get("receiverId") == uid
+        ]
+        if only_unread:
+            items = [n for n in items if not n.get("isRead")]
+        items.sort(key=lambda n: n.get("createdAt", ""), reverse=True)
+        if limit:
+            items = items[:limit]
+        return items
+
+    def unread_notification_count(self, uid):
+        if not uid:
+            return 0
+        return sum(
+            1 for n in self._read().get("notifications", [])
+            if n.get("receiverId") == uid and not n.get("isRead")
+        )
+
+    def mark_notification_read(self, notification_id, uid):
+        data = self._read()
+        for n in data.get("notifications", []):
+            if n.get("id") == notification_id and n.get("receiverId") == uid:
+                n["isRead"] = True
+                n["readAt"] = utc_now()
+                self._write(data)
+                return True
+        return False
+
+    def mark_all_notifications_read(self, uid):
+        data = self._read()
+        changed = 0
+        for n in data.get("notifications", []):
+            if n.get("receiverId") == uid and not n.get("isRead"):
+                n["isRead"] = True
+                n["readAt"] = utc_now()
+                changed += 1
+        if changed:
+            self._write(data)
+        return changed
+
+    def _notify(self, data, *, receiver_id, title, message, ticket=None, notification_type="ticket", actor=None):
+        if not receiver_id or actor and receiver_id == actor.get("uid"):
+            # Don't notify users about their own actions.
+            return
+        if "notifications" not in data:
+            data["notifications"] = []
+        data["notifications"].append({
+            "id": new_id("notif"),
+            "receiverId": receiver_id,
+            "title": title,
+            "message": message,
+            "type": notification_type,
+            "ticketId": (ticket or {}).get("id"),
+            "ticketNo": (ticket or {}).get("ticketNo"),
+            "createdBy": (actor or {}).get("uid", "system"),
+            "createdByName": (actor or {}).get("fullName", "System"),
+            "isRead": False,
+            "readAt": None,
+            "createdAt": utc_now(),
+        })
+
+    def _team_lead_id(self, data, team_id):
+        team = next((t for t in data.get("teams", []) if t.get("id") == team_id), None)
+        return (team or {}).get("teamLeadId")
 
     def audit_logs(self):
         return sorted(

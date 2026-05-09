@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from app.constants import (
     DEFAULT_DASHBOARDS,
@@ -35,6 +35,45 @@ tickets_bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 profile_bp = Blueprint("profile", __name__)
 settings_bp = Blueprint("settings", __name__)
 errors_bp = Blueprint("errors", __name__)
+notifications_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
+
+
+@notifications_bp.route("", methods=["GET"])
+@login_required
+def list_notifications():
+    user = current_user()
+    items = current_app.repo.notifications_for_user(user["uid"], limit=20)
+    unread = current_app.repo.unread_notification_count(user["uid"])
+    return jsonify({
+        "unread": unread,
+        "items": [{
+            "id": n.get("id"),
+            "title": n.get("title"),
+            "message": n.get("message"),
+            "ticketId": n.get("ticketId"),
+            "ticketNo": n.get("ticketNo"),
+            "type": n.get("type"),
+            "isRead": bool(n.get("isRead")),
+            "createdAt": n.get("createdAt"),
+            "url": url_for("tickets.view_ticket", ticket_id=n["ticketId"]) if n.get("ticketId") else "",
+        } for n in items],
+    })
+
+
+@notifications_bp.route("/<notif_id>/read", methods=["POST"])
+@login_required
+def mark_read(notif_id):
+    user = current_user()
+    ok = current_app.repo.mark_notification_read(notif_id, user["uid"])
+    return jsonify({"ok": ok, "unread": current_app.repo.unread_notification_count(user["uid"])})
+
+
+@notifications_bp.route("/read-all", methods=["POST"])
+@login_required
+def mark_all_read():
+    user = current_user()
+    changed = current_app.repo.mark_all_notifications_read(user["uid"])
+    return jsonify({"ok": True, "changed": changed, "unread": 0})
 
 
 def form_context(user=None, permissions=None):

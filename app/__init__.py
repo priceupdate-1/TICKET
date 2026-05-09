@@ -62,7 +62,7 @@ def create_app(config_class=Config):
     else:
         app.repo = JsonRepository(app.config["LOCAL_STORE_PATH"])
 
-    from app.routes import auth_bp, dashboard_bp, errors_bp, profile_bp, settings_bp, tickets_bp, users_bp
+    from app.routes import auth_bp, dashboard_bp, errors_bp, notifications_bp, profile_bp, settings_bp, tickets_bp, users_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -71,6 +71,7 @@ def create_app(config_class=Config):
     app.register_blueprint(profile_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(errors_bp)
+    app.register_blueprint(notifications_bp)
 
     @app.template_filter("friendly_status")
     def friendly_status(value):
