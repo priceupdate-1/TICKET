@@ -1,4 +1,6 @@
 import json
+import time
+from copy import deepcopy
 
 from app.services.repository import JsonRepository
 from app.services.seed import build_seed_data
@@ -20,6 +22,23 @@ COLLECTIONS = [
     "notifications",
     "auditLogs",
 ]
+
+# Lookups change rarely (only via admin actions). Cache them across requests
+# in this Python process with a short TTL. A write that touches any of these
+# collections clears the cache so admins see their changes immediately.
+_LOOKUP_COLLECTIONS = (
+    "systems", "categories", "areas", "teams",
+    "userTypes", "roles", "departments",
+)
+# Everything else is fetched fresh per request (still memoized within the
+# request via Flask's `g`).
+_VOLATILE_COLLECTIONS = (
+    "users", "tickets", "ticketNotes", "ticketStatusHistory",
+    "ticketAttachments", "notifications", "auditLogs",
+)
+
+_LOOKUP_CACHE = {"data": None, "ts": 0.0}
+_LOOKUP_TTL_SECONDS = 300
 
 
 def _request_cache():
@@ -95,19 +114,26 @@ class FirestoreRepository(JsonRepository):
         data = self._fetch_all()
         if cache is not None:
             cache._firestore_data = data
+            # Snapshot pre-mutation state so _write can compute deltas and
+            # only push the documents that actually changed.
+            cache._firestore_snapshot = deepcopy(data)
         return data
 
     def _fetch_all(self):
-        data = {}
-        for collection_name in COLLECTIONS:
-            data[collection_name] = [
-                document.to_dict()
-                for document in self.db.collection(collection_name).stream()
-            ]
-        data["userPermissions"] = {
-            document.id: document.to_dict()
-            for document in self.db.collection("userPermissions").stream()
-        }
+        # Lookups: process-wide TTL cache. Deep-copy on return so callers can
+        # mutate freely without poisoning the cache.
+        now = time.time()
+        cache = _LOOKUP_CACHE
+        if cache["data"] is None or (now - cache["ts"]) >= _LOOKUP_TTL_SECONDS:
+            cache["data"] = self._fetch_lookups_fresh()
+            cache["ts"] = now
+        data = deepcopy(cache["data"])
+
+        # Volatile collections: always fetch fresh (per-request memoization
+        # in _read() handles repeats within one request).
+        for name in _VOLATILE_COLLECTIONS:
+            data[name] = [doc.to_dict() for doc in self.db.collection(name).stream()]
+
         counter_doc = self.db.collection("ticketCounters").document("default").get()
         data["ticketCounters"] = {
             "default": counter_doc.to_dict()
@@ -116,23 +142,77 @@ class FirestoreRepository(JsonRepository):
         }
         return data
 
+    def _fetch_lookups_fresh(self):
+        data = {}
+        for name in _LOOKUP_COLLECTIONS:
+            data[name] = [doc.to_dict() for doc in self.db.collection(name).stream()]
+        data["userPermissions"] = {
+            doc.id: doc.to_dict() for doc in self.db.collection("userPermissions").stream()
+        }
+        return data
+
     def _write(self, data):
+        cache = _request_cache()
+        snapshot = getattr(cache, "_firestore_snapshot", None) if cache is not None else None
+        if snapshot is None:
+            self._write_all(data)
+        else:
+            self._write_delta(snapshot, data)
+        if cache is not None:
+            cache._firestore_data = data
+            cache._firestore_snapshot = deepcopy(data)
+
+    def _write_all(self, data):
         for collection_name in COLLECTIONS:
             for item in data.get(collection_name, []):
                 document_id = item.get("id") or item.get("uid")
                 if document_id:
                     self.db.collection(collection_name).document(document_id).set(item)
-
         for uid, permissions in data.get("userPermissions", {}).items():
             self.db.collection("userPermissions").document(uid).set(permissions)
-
         self.db.collection("ticketCounters").document("default").set(
             data.get("ticketCounters", {}).get("default", {})
         )
+        # Lookups were just written -- next request must refetch.
+        _LOOKUP_CACHE["data"] = None
 
-        cache = _request_cache()
-        if cache is not None:
-            cache._firestore_data = data
+    def _write_delta(self, old, new):
+        """Write only the documents that actually changed between old and new.
+        Soft-deletes are honoured (the isDeleted=True item is still in `new`);
+        we intentionally do NOT delete docs that disappear from `new` so a
+        partial in-memory list never wipes Firestore data."""
+        lookups_changed = False
+        for name in COLLECTIONS:
+            old_items = {
+                (it.get("id") or it.get("uid")): it
+                for it in old.get(name, []) or []
+                if (it.get("id") or it.get("uid"))
+            }
+            new_items = {
+                (it.get("id") or it.get("uid")): it
+                for it in new.get(name, []) or []
+                if (it.get("id") or it.get("uid"))
+            }
+            for doc_id, item in new_items.items():
+                if old_items.get(doc_id) != item:
+                    self.db.collection(name).document(doc_id).set(item)
+                    if name in _LOOKUP_COLLECTIONS:
+                        lookups_changed = True
+
+        old_perms = old.get("userPermissions", {}) or {}
+        new_perms = new.get("userPermissions", {}) or {}
+        for uid, perm in new_perms.items():
+            if old_perms.get(uid) != perm:
+                self.db.collection("userPermissions").document(uid).set(perm)
+                lookups_changed = True
+
+        old_counter = (old.get("ticketCounters") or {}).get("default")
+        new_counter = (new.get("ticketCounters") or {}).get("default")
+        if new_counter and new_counter != old_counter:
+            self.db.collection("ticketCounters").document("default").set(new_counter)
+
+        if lookups_changed:
+            _LOOKUP_CACHE["data"] = None
 
     # Collections that must all be non-empty for the app to be usable. If any
     # is empty (e.g. a partial seed where users got written but the lookup
