@@ -774,9 +774,18 @@ def profile():
     return render_template("profile/index.html", user=user)
 
 
-@settings_bp.route("/settings")
+@settings_bp.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
+    user = current_user()
+    permissions = current_permissions()
+    if request.method == "POST":
+        if not permissions.get("canManageUsers"):
+            return redirect(url_for("errors.unauthorized"))
+        show = request.form.get("showAuditLog") == "on"
+        current_app.repo.set_show_audit_log(user["uid"], show, user)
+        flash("Settings updated.", "success")
+        return redirect(url_for("settings.settings"))
     return render_template("settings/index.html")
 
 
@@ -784,6 +793,10 @@ def settings():
 @login_required
 @permission_required("canManageUsers")
 def audit_log():
+    user = current_user()
+    if not user.get("showAuditLog"):
+        flash("Enable the audit log option in Settings to view this page.", "error")
+        return redirect(url_for("settings.settings"))
     return render_template("settings/audit_log.html", audit_logs=current_app.repo.audit_logs())
 
 
