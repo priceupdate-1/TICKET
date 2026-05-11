@@ -110,7 +110,11 @@ def create_app(config_class=Config):
                 app.config.get("FIREBASE_PROJECT_ID"),
                 credentials_json=app.config.get("FIREBASE_CREDENTIALS_JSON"),
             )
-        except RuntimeError as error:
+        except Exception as error:
+            # Catching broadly here is intentional: we never want a Firestore
+            # transient (quota, network, auth) to take out the WSGI module
+            # import on Vercel. The before-request hook below renders a
+            # friendly setup page instead.
             app.logger.warning("Firestore init failed: %s", error)
             storage_error = str(error)
             app.repo = None
@@ -145,6 +149,21 @@ def create_app(config_class=Config):
                 error=storage_error or "Storage backend not configured.",
                 project=app.config.get("FIREBASE_PROJECT_ID") or "<your-project-id>",
             ), 500
+        # FirestoreRepository defers its seed/migration check to here so a
+        # bad cold-start (e.g. quota exhausted) doesn't kill the import.
+        ensure = getattr(app.repo, "_ensure_migrated", None)
+        if ensure is not None:
+            try:
+                ensure()
+            except Exception as error:
+                if flask_request.path.startswith("/static/"):
+                    return None
+                app.logger.warning("Firestore migration failed: %s", error)
+                return render_template_string(
+                    _SETUP_HELP_TEMPLATE,
+                    error=str(error),
+                    project=app.config.get("FIREBASE_PROJECT_ID") or "<your-project-id>",
+                ), 503
         return None
 
     from app.routes import auth_bp, dashboard_bp, errors_bp, notifications_bp, profile_bp, settings_bp, tickets_bp, users_bp

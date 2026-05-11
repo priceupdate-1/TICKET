@@ -22,6 +22,19 @@ COLLECTIONS = [
 ]
 
 
+def _request_cache():
+    """Return Flask's per-request `g` object if we're inside a request,
+    else None. Lets us memoize Firestore reads per request without
+    breaking script/CLI usage of the repository."""
+    try:
+        from flask import g, has_request_context
+        if has_request_context():
+            return g
+    except (ImportError, RuntimeError):
+        pass
+    return None
+
+
 class FirestoreRepository(JsonRepository):
     def __init__(self, credentials_path, project_id=None, credentials_json=None):
         try:
@@ -51,12 +64,40 @@ class FirestoreRepository(JsonRepository):
                 firebase_admin.initialize_app(cred)
 
         self.db = firestore.client()
-        if not self._has_required_seed():
-            self._write(build_seed_data())
-        else:
-            self._ensure_schema()
+        # Defer the seed/migration check to the first request so cold starts
+        # don't burn quota or crash on RESOURCE_EXHAUSTED at import time.
+        self._migrated = False
+
+    def _ensure_migrated(self):
+        if self._migrated:
+            return
+        try:
+            from google.api_core import exceptions as gcp_exc
+        except ImportError:
+            gcp_exc = None
+        try:
+            if not self._has_required_seed():
+                self._write(build_seed_data())
+            else:
+                self._ensure_schema()
+            self._migrated = True
+        except Exception as error:
+            if gcp_exc and isinstance(error, gcp_exc.GoogleAPIError):
+                raise RuntimeError(f"Firestore unavailable: {error}") from error
+            raise
 
     def _read(self):
+        cache = _request_cache()
+        if cache is not None:
+            cached = getattr(cache, "_firestore_data", None)
+            if cached is not None:
+                return cached
+        data = self._fetch_all()
+        if cache is not None:
+            cache._firestore_data = data
+        return data
+
+    def _fetch_all(self):
         data = {}
         for collection_name in COLLECTIONS:
             data[collection_name] = [
@@ -88,6 +129,10 @@ class FirestoreRepository(JsonRepository):
         self.db.collection("ticketCounters").document("default").set(
             data.get("ticketCounters", {}).get("default", {})
         )
+
+        cache = _request_cache()
+        if cache is not None:
+            cache._firestore_data = data
 
     def _has_required_seed(self):
         return bool(list(self.db.collection("users").limit(1).stream()))
