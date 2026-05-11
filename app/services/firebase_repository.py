@@ -134,5 +134,18 @@ class FirestoreRepository(JsonRepository):
         if cache is not None:
             cache._firestore_data = data
 
+    # Collections that must all be non-empty for the app to be usable. If any
+    # is empty (e.g. a partial seed where users got written but the lookup
+    # tables didn't), treat the DB as needing seed and overwrite with the
+    # build_seed_data() contents via _write() (which is an upsert, so any
+    # existing user records are merged with the seed, not deleted).
+    _SEED_REQUIRED_COLLECTIONS = (
+        "users", "systems", "userTypes", "roles",
+        "departments", "categories", "areas", "teams",
+    )
+
     def _has_required_seed(self):
-        return bool(list(self.db.collection("users").limit(1).stream()))
+        for name in self._SEED_REQUIRED_COLLECTIONS:
+            if not list(self.db.collection(name).limit(1).stream()):
+                return False
+        return True
