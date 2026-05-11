@@ -65,6 +65,11 @@ class JsonRepository:
                 data["users"].append(user)
                 changed = True
 
+        for user in data.get("users", []):
+            if "showAuditLog" not in user:
+                user["showAuditLog"] = False
+                changed = True
+
         existing_permission_ids = set(data.get("userPermissions", {}).keys())
         for uid, permissions in seed["userPermissions"].items():
             if uid not in existing_permission_ids:
@@ -332,6 +337,16 @@ class JsonRepository:
             {"profile": True},
             actor,
         )
+        self._write(data)
+
+    def set_show_audit_log(self, uid, show, actor):
+        data = self._read()
+        user = next((entry for entry in data["users"] if entry["uid"] == uid), None)
+        if not user:
+            raise ValueError("User not found.")
+        user["showAuditLog"] = bool(show)
+        user["updatedAt"] = utc_now()
+        user["updatedBy"] = actor["uid"]
         self._write(data)
 
     def tickets(self):

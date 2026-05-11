@@ -1,9 +1,32 @@
 {% extends "base.html" %}
 
 {% block page_title %}Settings{% endblock %}
-{% block page_subtitle %}Phase 1 settings and Firebase readiness status.{% endblock %}
+{% block page_subtitle %}Personal preferences and system readiness status.{% endblock %}
 
 {% block content %}
+  {% if current_permissions.canManageUsers %}
+    <section class="section-band">
+      <div class="section-header">
+        <div>
+          <h2>Preferences</h2>
+          <p>Control which optional admin tools appear in your sidebar. Hidden by default to keep the workspace clean.</p>
+        </div>
+      </div>
+      <form method="post" class="form-grid">
+        <label class="check-line">
+          <input type="checkbox" name="showAuditLog" {% if current_user.showAuditLog %}checked{% endif %} />
+          Show Audit Log
+          <small style="display:block;color:var(--muted);font-weight:400;margin-top:4px">
+            Reveals the Audit Log link in the sidebar and lets you open the log page.
+          </small>
+        </label>
+        <div class="sticky-actions" style="grid-column:1/-1">
+          <button class="button button-primary" type="submit">Save Preferences</button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+
   <section class="section-band">
     <div class="section-header">
       <div>
